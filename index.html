@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>caveman — AI Cofounder for Non-Coders</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;--surface3:#282828;
+--amber:#f5a623;--amber-light:#ffc857;--amber-dark:#c47f0e;
+--text:#f0ece4;--text-muted:#9a958c;--text-dim:#5a5650;
+--radius:12px;--transition:0.4s cubic-bezier(.4,0,.2,1);
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;line-height:1.6}
+a{color:var(--amber);text-decoration:none}
+
+/* Step indicator */
+.step-indicator{
+position:fixed;top:0;left:0;right:0;z-index:1000;
+background:rgba(10,10,10,0.92);backdrop-filter:blur(12px);
+border-bottom:1px solid rgba(245,166,35,0.1);
+padding:14px 24px;display:flex;align-items:center;justify-content:space-between;
+transform:translateY(-100%);transition:transform var(--transition);
+}
+.step-indicator.visible{transform:translateY(0)}
+.step-dots{display:flex;gap:8px;align-items:center}
+.step-dot{
+width:32px;height:4px;border-radius:2px;background:var(--surface3);
+transition:all var(--transition);cursor:pointer;
+}
+.step-dot.active{background:var(--amber);width:48px}
+.step-dot.completed{background:var(--amber-dark)}
+.step-label{font-size:13px;font-weight:600;color:var(--text-muted)}
+.logo-small{font-weight:900;font-size:16px;color:var(--amber);letter-spacing:-0.5px}
+
+/* Progress bar */
+.global-progress{
+position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--amber),var(--amber-light));
+z-index:1001;transition:width var(--transition);width:0;
+}
+
+/* Sections */
+.section{
+min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+padding:80px 24px;opacity:0;transform:translateY(40px);
+transition:opacity 0.6s ease,transform 0.6s ease;position:relative;
+}
+.section.active{opacity:1;transform:translateY(0)}
+.section.hero-section{opacity:1;transform:none}
+
+/* Hero */
+.hero-section{text-align:center;position:relative;overflow:hidden}
+.hero-glow{
+position:absolute;top:-200px;left:50%;transform:translateX(-50%);
+width:600px;height:600px;border-radius:50%;
+background:radial-gradient(circle,rgba(245,166,35,0.08) 0%,transparent 70%);
+pointer-events:none;
+}
+.hero-badge{
+display:inline-flex;align-items:center;gap:8px;
+background:var(--surface2);border:1px solid rgba(245,166,35,0.2);
+border-radius:50px;padding:8px 18px;font-size:13px;font-weight:600;
+color:var(--amber);margin-bottom:32px;
+}
+.hero-badge span{width:6px;height:6px;background:var(--amber);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.hero-title{
+font-size:clamp(42px,8vw,86px);font-weight:900;letter-spacing:-2px;
+line-height:1;margin-bottom:20px;
+}
+.hero-title .highlight{
+background:linear-gradient(135deg,var(--amber),var(--amber-light));
+-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{
+font-size:clamp(16px,2.5vw,22px);color:var(--text-muted);max-width:600px;
+margin:0 auto 48px;line-height:1.7;
+}
+.cta-btn{
+display:inline-flex;align-items:center;gap:10px;
+background:linear-gradient(135deg,var(--amber),var(--amber-dark));
+color:#0a0a0a;font-weight:800;font-size:18px;
+padding:18px 40px;border-radius:60px;border:none;cursor:pointer;
+transition:all 0.3s ease;letter-spacing:-0.3px;
+}
+.cta-btn:hover{transform:scale(1.05);box-shadow:0 0 40px rgba(245,166,35,0.3)}
+.cta-btn svg{transition:transform 0.3s}
+.cta-btn:hover svg{transform:translateX(4px)}
+
+/* Step layout */
+.step-content{max-width:900px;width:100%;margin:0 auto}
+.step-badge{
+display:inline-flex;align-items:center;gap:8px;
+font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;
+color:var(--amber);margin-bottom:16px;
+}
+.step-badge .num{
+width:28px;height:28px;border-radius:50%;background:var(--amber);
+color:#0a0a0a;display:flex;align-items:center;justify-content:center;
+font-size:12px;font-weight:800;
+}
+.step-title{font-size:clamp(28px,5vw,44px);font-weight:800;letter-spacing:-1px;margin-bottom:12px}
+.step-desc{color:var(--text-muted);font-size:17px;max-width:560px;margin-bottom:40px;line-height:1.7}
+
+/* Widget area */
+.widget-area{
+background:var(--surface);border:1px solid var(--surface3);
+border-radius:var(--radius);overflow:hidden;width:100%;
+}
+.widget-header{
+display:flex;align-items:center;gap:8px;padding:14px 20px;
+border-bottom:1px solid var(--surface3);background:var(--surface2);
+}
+.widget-dot{width:10px;height:10px;border-radius:50%}
+.widget-dot.r{background:#ff5f57}.widget-dot.y{background:#ffbd2e}.widget-dot.g{background:#28c840}
+.widget-title{font-size:12px;color:var(--text-dim);margin-left:8px;font-weight:600}
+.widget-body{padding:24px}
+
+/* Navigation */
+.nav-buttons{
+display:flex;gap:12px;margin-top:40px;justify-content:center;
+}
+.nav-btn{
+padding:14px 28px;border-radius:60px;border:none;font-family:'Inter',sans-serif;
+font-weight:700;font-size:15px;cursor:pointer;transition:all 0.3s;
+}
+.nav-btn.next{
+background:var(--amber);color:#0a0a0a;
+}
+.nav-btn.next:hover{background:var(--amber-light);transform:scale(1.03)}
+.nav-btn.back{
+background:var(--surface2);color:var(--text-muted);border:1px solid var(--surface3);
+}
+.nav-btn.back:hover{background:var(--surface3);color:var(--text)}
+
+/* Chat widget */
+.chat-messages{
+max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;
+margin-bottom:16px;min-height:200px;
+}
+.chat-msg{
+max-width:80%;padding:12px 16px;border-radius:16px;font-size:14px;
+line-height:1.5;animation:msgIn 0.3s ease;
+}
+@keyframes msgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.chat-msg.user{
+background:var(--amber);color:#0a0a0a;align-self:flex-end;
+border-bottom-right-radius:4px;font-weight:600;
+}
+.chat-msg.ai{
+background:var(--surface2);color:var(--text);align-self:flex-start;
+border-bottom-left-radius:4px;border:1px solid var(--surface3);
+}
+.chat-msg.ai .typing{display:inline-flex;gap:4px}
+.chat-msg.ai .typing span{
+width:6px;height:6px;background:var(--text-muted);border-radius:50%;
+animation:typeBounce 1.4s infinite;
+}
+.chat-msg.ai .typing span:nth-child(2){animation-delay:0.2s}
+.chat-msg.ai .typing span:nth-child(3){animation-delay:0.4s}
+@keyframes typeBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.chat-input-row{display:flex;gap:10px}
+.chat-input{
+flex:1;padding:14px 18px;background:var(--surface2);border:1px solid var(--surface3);
+border-radius:60px;color:var(--text);font-family:'Inter',sans-serif;font-size:14px;
+outline:none;transition:border-color 0.3s;
+}
+.chat-input:focus{border-color:var(--amber)}
+.chat-send{
+width:44px;height:44px;border-radius:50%;background:var(--amber);border:none;
+cursor:pointer;display:flex;align-items:center;justify-content:center;
+transition:all 0.3s;flex-shrink:0;
+}
+.chat-send:hover{background:var(--amber-light);transform:scale(1.1)}
+
+/* Feature cards toggle */
+.feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.feature-card{
+background:var(--surface2);border:1px solid var(--surface3);border-radius:var(--radius);
+padding:20px;cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;
+}
+.feature-card.selected{border-color:var(--amber);background:rgba(245,166,35,0.05)}
+.feature-card.selected::before{
+content:'✓';position:absolute;top:10px;right:12px;
+width:22px;height:22px;background:var(--amber);color:#0a0a0a;
+border-radius:50%;display:flex;align-items:center;justify-content:center;
+font-size:12px;font-weight:800;
+}
+.feature-card h4{font-size:15px;font-weight:700;margin-bottom:6px}
+.feature-card p{font-size:12px;color:var(--text-muted);line-height:1.5}
+.feature-icon{font-size:24px;margin-bottom:10px;display:block}
+
+/* Build animation */
+.build-output{
+font-family:'Courier New',monospace;font-size:13px;color:var(--amber);
+background:#0a0a0a;padding:20px;border-radius:8px;min-height:220px;
+overflow-y:auto;line-height:1.8;max-height:300px;
+}
+.build-line{animation:lineIn 0.3s ease}
+@keyframes lineIn{from{opacity:0}to{opacity:1}}
+.build-btn{
+display:inline-flex;align-items:center;gap:8px;
+padding:14px 28px;background:var(--amber);color:#0a0a0a;
+font-weight:800;border:none;border-radius:60px;cursor:pointer;
+font-family:'Inter',sans-serif;font-size:15px;margin-top:20px;
+transition:all 0.3s;
+}
+.build-btn:hover{transform:scale(1.05);background:var(--amber-light)}
+.build-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+/* Deploy dashboard */
+.deploy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.deploy-stat{
+background:var(--surface2);border:1px solid var(--surface3);border-radius:var(--radius);
+padding:20px;text-align:center;
+}
+.deploy-stat .value{
+font-size:32px;font-weight:900;color:var(--amber);
+font-variant-numeric:tabular-nums;
+}
+.deploy-stat .label{font-size:12px;color:var(--text-muted);margin-top:4px;font-weight:600}
+.deploy-url{
+background:var(--surface2);border:1px solid var(--surface3);border-radius:60px;
+padding:14px 20px;display:flex;align-items:center;gap:12px;
+}
+.deploy-url .live-dot{
+width:8px;height:8px;background:#28c840;border-radius:50%;
+animation:pulse 1.5s infinite;flex-shrink:0;
+}
+.deploy-url code{font-size:14px;color:var(--amber);flex:1}
+.deploy-url button{
+background:var(--surface3);border:none;color:var(--text);padding:8px 16px;
+border-radius:30px;font-size:12px;font-weight:700;cursor:pointer;
+font-family:'Inter',sans-serif;transition:all 0.3s;
+}
+.deploy-url button:hover{background:var(--amber);color:#0a0a0a}
+
+/* Booking form */
+.book-form{display:flex;flex-direction:column;gap:14px;max-width:420px;margin:0 auto}
+.book-input{
+padding:16px 20px;background:var(--surface2);border:1px solid var(--surface3);
+border-radius:var(--radius);color:var(--text);font-family:'Inter',sans-serif;
+font-size:15px;outline:none;transition:border-color 0.3s;
+}
+.book-input:focus{border-color:var(--amber)}
+.book-submit{
+padding:18px;background:linear-gradient(135deg,var(--amber),var(--amber-dark));
+color:#0a0a0a;font-weight:800;font-size:16px;border:none;border-radius:var(--radius);
+cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.3s;
+}
+.book-submit:hover{transform:scale(1.02);box-shadow:0 0 30px rgba(245,166,35,0.3)}
+.final-title{
+font-size:clamp(28px,5vw,48px);font-weight:900;letter-spacing:-1.5px;
+text-align:center;margin-bottom:8px;
+}
+.final-sub{color:var(--text-muted);text-align:center;font-size:17px;margin-bottom:40px;line-height:1.7}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+
+/* Mobile */
+@media(max-width:600px){
+.section{padding:100px 16px 60px}
+.widget-body{padding:16px}
+.feature-grid{grid-template-columns:1fr}
+.deploy-grid{grid-template-columns:repeat(2,1fr)}
+.chat-msg{max-width:90%}
+.nav-buttons{flex-direction:column;align-items:stretch}
+}
+</style>
+</head>
+<body>
+
+<div class="global-progress" id="progressBar"></div>
+
+<div class="step-indicator" id="stepIndicator" role="navigation" aria-label="Tour progress">
+<span class="logo-small">caveman</span>
+<div class="step-dots" id="stepDots"></div>
+<span class="step-label" id="stepLabel" aria-live="polite"></span>
+</div>
+
+<!-- HERO -->
+<div class="section hero-section active" id="step-0">
+<div class="hero-glow"></div>
+<div class="hero-badge"><span></span> Now in public beta</div>
+<h1 class="hero-title">Describe it.<br><span class="highlight">caveman builds it.</span></h1>
+<p class="hero-sub">Your AI cofounder turns plain English into production-ready apps. No code. No developers. No waiting. Just describe what you want and watch it come to life.</p>
+<button class="cta-btn" onclick="startTour()" aria-label="Start the product tour">
+Start tour
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+</div>
+
+<!-- STEP 1: Describe your app -->
+<div class="section" id="step-1" aria-label="Step 1: Describe your app idea">
+<div class="step-content">
+<div class="step-badge"><span class="num">1</span> DESCRIBE</div>
+<h2 class="step-title">Tell caveman what you want to build</h2>
+<p class="step-desc">No wireframes, no PRDs, no jargon. Just talk to caveman like you'd talk to a cofounder over coffee. It understands context, intent, and nuance.</p>
+<div class="widget-area">
+<div class="widget-header">
+<div class="widget-dot r"></div><div class="widget-dot y"></div><div class="widget-dot g"></div>
+<span class="widget-title">caveman chat</span>
+</div>
+<div class="widget-body">
+<div class="chat-messages" id="chat1" role="log" aria-live="polite"></div>
+<div class="chat-input-row">
+<input class="chat-input" id="chatInput1" type="text" placeholder="Describe your app idea..." aria-label="Describe your app idea" />
+<button class="chat-send" onclick="sendChat()" aria-label="Send message">
+<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 10l14-7-4 7 4 7L3 10z" fill="#0a0a0a"/></svg>
+</button>
+</div>
+</div>
+</div>
+<div class="nav-buttons">
+<button class="nav-btn back" onclick="goStep(0)">← Back</button>
+<button class="nav-btn next" onclick="goStep(2)">Next →</button>
+</div>
+</div>
+</div>
+
+<!-- STEP 2: Choose features -->
+<div class="section" id="step-2" aria-label="Step 2: Pick your features">
+<div class="step-content">
+<div class="step-badge"><span class="num">2</span> CUSTOMIZE</div>
+<h2 class="step-title">Pick the features you need</h2>
+<p class="step-desc">caveman suggests smart defaults based on your description. Toggle features on or off — every selection instantly updates your app blueprint.</p>
+<div class="widget-area">
+<div class="widget-header">
+<div class="widget-dot r"></div><div class="widget-dot y"></div><div class="widget-dot g"></div>
+<span class="widget-title">feature selector</span>
+</div>
+<div class="widget-body">
+<div class="feature-grid" id="featureGrid"></div>
+<div style="margin-top:16px;padding:14px 18px;background:#0a0a0a;border-radius:8px;font-size:13px;color:var(--text-muted)">
+<span style="color:var(--amber);font-weight:700" id="featureCount">0</span> features selected · Estimated build time: <span style="color:var(--amber);font-weight:700" id="buildTime">0 min</span>
+</div>
+</div>
+</div>
+<div class="nav-buttons">
+<button class="nav-btn back" onclick="goStep(1)">← Back</button>
+<button class="nav-btn next" onclick="goStep(3)">Next →</button>
+</div>
+</div>
+</div>
+
+<!-- STEP 3: Watch it build -->
+<div class="section" id="step-3" aria-label="Step 3: Watch it get built">
+<div class="step-content">
+<div class="step-badge"><span class="num">3</span> BUILD</div>
+<h2 class="step-title">Watch your app get built in real time</h2>
+<p class="step-desc">caveman generates production-quality code, sets up your database, configures APIs, and handles all the infrastructure. Sit back and watch the magic.</p>
+<div class="widget-area">
+<div class="widget-header">
+<div class="widget-dot r"></div><div class="widget-dot y"></div><div class="widget-dot g"></div>
+<span class="widget-title">build terminal</span>
+</div>
+<div class="widget-body">
+<div class="build-output" id="buildOutput"></div>
+<button class="build-btn" id="buildBtn" onclick="startBuild()">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polygon points="3,1 13,8 3,15" fill="#0a0a0a"/></svg>
+Start Build
+</button>
+</div>
+</div>
+<div class="nav-buttons">
+<button class="nav-btn back" onclick="goStep(2)">← Back</button>
+<button class="nav-btn next" onclick="goStep(4)">Next →</button>
+</div>
+</div>
+</div>
+
+<!-- STEP 4: Deploy -->
+<div class="section" id="step-4" aria-label="Step 4: Deploy instantly">
+<div class="step-content">
+<div class="step-badge"><span class="num">4</span> DEPLOY</div>
+<h2 class="step-title">Live in seconds, not sprints</h2>
+<p class="step-desc">One click and your app is live with SSL, CDN, auto-scaling, and a custom domain. Real infrastructure, zero DevOps. Your users can start using it immediately.</p>
+<div class="widget-area">
+<div class="widget-header">
+<div class="widget-dot r"></div><div class="widget-dot y"></div><div class="widget-dot g"></div>
+<span class="widget-title">deployment dashboard</span>
+</div>
+<div class="widget-body">
+<div class="deploy-grid" id="deployGrid">
+<div class="deploy-stat"><div class="value" data-target="99.9">0</div><div class="label">Uptime %</div></div>
+<div class="deploy-stat"><div class="value" data-target="42">0</div><div class="label">Response (ms)</div></div>
+<div class="deploy-stat"><div class="value" data-target="12">0</div><div class="label">API Endpoints</div></div>
+<div class="deploy-stat"><div class="value" data-target="3">0</div><div class="label">Regions</div></div>
+</div>
+<div class="deploy-url">
+<div class="live-dot"></div>
+<code>https://your-app.caveman.dev</code>
+<button onclick="copyUrl(this)">Copy URL</button>
+</div>
+</div>
+</div>
+<div class="nav-buttons">
+<button class="nav-btn back" onclick="goStep(3)">← Back</button>
+<button class="nav-btn next" onclick="goStep(5)">Finish tour →</button>
+</div>
+</div>
+</div>
+
+<!-- STEP 5: Book demo -->
+<div class="section" id="step-5" aria-label="Step 5: Book a demo">
+<div class="step-content" style="text-align:center">
+<div class="step-badge" style="justify-content:center"><span class="num">5</span> GET STARTED</div>
+<h2 class="final-title">Ready to build without code?</h2>
+<p class="final-sub">Join 2,400+ founders who shipped their product in hours, not months.<br>Book a 15-min demo and we'll build your first feature live on the call.</p>
+<div class="widget-area" style="max-width:500px;margin:0 auto">
+<div class="widget-header">
+<div class="widget-dot r"></div><div class="widget-dot y"></div><div class="widget-dot g"></div>
+<span class="widget-title">book your demo</span>
+</div>
+<div class="widget-body">
+<form class="book-form" id="bookForm" onsubmit="bookDemo(event)">
+<input class="book-input" type="text" id="bookName" placeholder="Your name" required aria-label="Your name" />
+<input class="book-input" type="email" id="bookEmail" placeholder="Work email" required aria-label="Work email" />
+<input class="book-input" type="text" id="bookCompany" placeholder="Company name" required aria-label="Company name" />
+<button class="book-submit" type="submit">Book a 15-min demo →</button>
+</form>
+</div>
+</div>
+<div class="nav-buttons" style="margin-top:24px">
+<button class="nav-btn back" onclick="goStep(4)">← Back</button>
+</div>
+</div>
+</div>
+
+<script>
+const TOTAL_STEPS = 5;
+let currentStep = 0;
+let buildRunning = false;
+
+// Initialize step dots
+const dotsContainer = document.getElementById('stepDots');
+for (let i = 1; i <= TOTAL_STEPS; i++) {
+  const dot = document.createElement('div');
+  dot.className = 'step-dot';
+  dot.dataset.step = i;
+  dot.onclick = () => { if (i <= getMaxVisited()) goStep(i); };
+  dot.setAttribute('aria-label', `Step ${i}`);
+  dotsContainer.appendChild(dot);
+}
+
+let maxVisited = 0;
+function getMaxVisited() { return maxVisited; }
+
+function updateUI() {
+  // Show/hide indicator
+  const indicator = document.getElementById('stepIndicator');
+  if (currentStep > 0) indicator.classList.add('visible');
+  else indicator.classList.remove('visible');
+
+  // Update progress bar
+  const progress = document.getElementById('progressBar');
+  progress.style.width = currentStep === 0 ? '0%' : `${(currentStep / TOTAL_STEPS) * 100}%`;
+
+  // Update dots
+  document.querySelectorAll('.step-dot').forEach(dot => {
+    const s = parseInt(dot.dataset.step);
+    dot.classList.remove('active', 'completed');
+    if (s === currentStep) dot.classList.add('active');
+    else if (s < currentStep) dot.classList.add('completed');
+  });
+
+  // Update label
+  const labels = ['', 'Describe', 'Customize', 'Build', 'Deploy', 'Book Demo'];
+  document.getElementById('stepLabel').textContent = currentStep > 0 ? `${currentStep}/${TOTAL_STEPS} · ${labels[currentStep]}` : '';
+
+  // Show/hide sections
+  document.querySelectorAll('.section').forEach((sec, i) => {
+    if (i === currentStep) {
+      sec.style.display = 'flex';
+      requestAnimationFrame(() => sec.classList.add('active'));
+    } else {
+      sec.classList.remove('active');
+      setTimeout(() => { if (parseInt(sec.id.split('-')[1]) !== currentStep) sec.style.display = 'none'; }, 400);
+    }
+  });
+
+  if (currentStep > maxVisited) maxVisited = currentStep;
+}
+
+function goStep(n) {
+  if (n < 0 || n > TOTAL_STEPS) return;
+  currentStep = n;
+  updateUI();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Trigger step-specific animations
+  if (n === 1) initChat();
+  if (n === 4) animateCounters();
+}
+
+function startTour() { goStep(1); }
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' && currentStep < TOTAL_STEPS) goStep(currentStep + 1);
+  if (e.key === 'ArrowLeft' && currentStep > 0) goStep(currentStep - 1);
+});
+
+// STEP 1: Chat widget
+const chatResponses = {
+  default: [
+    "Love that idea! I can see this as a clean web app with user authentication, a dashboard, and notification system. Want me to break it down into features?",
+    "Great concept! I'm thinking a React frontend with a serverless backend. Let me spec out the data models and API endpoints for you.",
+    "This is very buildable! I'd suggest starting with an MVP: user login, core workflow, and a simple analytics dashboard. Ready to pick features?",
+    "Interesting! I've seen similar products succeed with a mobile-first approach. Let me draft the architecture — database, APIs, and frontend components.",
+  ]
+};
+
+let chatInitialized = false;
+function initChat() {
+  if (chatInitialized) return;
+  chatInitialized = true;
+  const chat = document.getElementById('chat1');
+  addMsg(chat, 'ai', "Hey! 👋 I'm caveman, your AI cofounder. Tell me about the app you want to build — describe it however feels natural.");
+
+  document.getElementById('chatInput1').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendChat();
+  });
+}
+
+function addMsg(container, type, text) {
+  const msg = document.createElement('div');
+  msg.className = `chat-msg ${type}`;
+  msg.textContent = text;
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+  return msg;
+}
+
+function addTyping(container) {
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg ai';
+  msg.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  msg.id = 'typing-indicator';
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+  return msg;
+}
+
+function sendChat() {
+  const input = document.getElementById('chatInput1');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const chat = document.getElementById('chat1');
+  addMsg(chat, 'user', text);
+  input.value = '';
+
+  const typing = addTyping(chat);
+
+  setTimeout(() => {
+    typing.remove();
+    const responses = chatResponses.default;
+    const response = responses[Math.floor(Math.random() * responses.length)];
+    addMsg(chat, 'ai', response);
+  }, 1200 + Math.random() * 800);
+}
+
+// STEP 2: Feature selector
+const features = [
+  { icon: '🔐', name: 'User Auth', desc: 'Login, signup, OAuth, password reset' },
+  { icon: '📊', name: 'Dashboard', desc: 'Analytics overview with charts and KPIs' },
+  { icon: '💳', name: 'Payments', desc: 'Stripe integration, subscriptions, invoices' },
+  { icon: '📧', name: 'Notifications', desc: 'Email, push, and in-app notifications' },
+  { icon: '🗃️', name: 'Database', desc: 'Auto-generated schemas, CRUD APIs' },
+  { icon: '🔍', name: 'Search', desc: 'Full-text search with filters and sorting' },
+  { icon: '👥', name: 'Teams', desc: 'Multi-user workspaces with roles' },
+  { icon: '📱', name: 'Mobile Ready', desc: 'Responsive PWA with offline support' },
+];
+
+const featureGrid = document.getElementById('featureGrid');
+features.forEach((f, i) => {
+  const card = document.createElement('div');
+  card.className = 'feature-card';
+  card.innerHTML = `<span class="feature-icon">${f.icon}</span><h4>${f.name}</h4><p>${f.desc}</p>`;
+  card.onclick = () => {
+    card.classList.toggle('selected');
+    updateFeatureCount();
+  };
+  card.setAttribute('role', 'checkbox');
+  card.setAttribute('aria-checked', 'false');
+  card.setAttribute('tabindex', '0');
+  card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } });
+  featureGrid.appendChild(card);
+});
+
+function updateFeatureCount() {
+  const selected = document.querySelectorAll('.feature-card.selected').length;
+  document.getElementById('featureCount').textContent = selected;
+  document.getElementById('buildTime').textContent = selected === 0 ? '0 min' : `${selected * 3 + 2} min`;
+  document.querySelectorAll('.feature-card').forEach(c => {
+    c.setAttribute('aria-checked', c.classList.contains('selected'));
+  });
+}
+
+// STEP 3: Build terminal
+const buildLines = [
+  '$ caveman init --project="your-app"',
+  '✓ Project scaffolded',
+  '$ Analyzing feature requirements...',
+  '  → User Auth: generating OAuth2 flow...',
+  '  → Dashboard: creating chart components...',
+  '  → Database: designing PostgreSQL schemas...',
+  '✓ 12 database tables created',
+  '✓ 34 API endpoints generated',
+  '$ Running security audit...',
+  '  → No vulnerabilities found',
+  '$ Compiling frontend assets...',
+  '  → React components: 47 files',
+  '  → Tailwind CSS: optimized (4.2kb gzip)',
+  '$ Running test suite...',
+  '  → 128 tests passed, 0 failed',
+  '$ Optimizing bundle...',
+  '  → Code split: 6 chunks',
+  '  → Tree shaking: removed 62% dead code',
+  '✓ Build complete in 2.4s',
+  '',
+  '🎉 Your app is ready to deploy!',
+];
+
+function startBuild() {
+  if (buildRunning) return;
+  buildRunning = true;
+  const output = document.getElementById('buildOutput');
+  const btn = document.getElementById('buildBtn');
+  output.innerHTML = '';
+  btn.disabled = true;
+  btn.textContent = 'Building...';
+
+  let i = 0;
+  function addLine() {
+    if (i >= buildLines.length) {
+      buildRunning = false;
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8l4 4 8-8" stroke="#0a0a0a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Build Complete!';
+      return;
+    }
+    const line = document.createElement('div');
+    line.className = 'build-line';
+    const text = buildLines[i];
+    if (text.startsWith('✓') || text.startsWith('🎉')) {
+      line.style.color = '#28c840';
+    } else if (text.startsWith('  →')) {
+      line.style.color = 'var(--text-muted)';
+    }
+    line.textContent = text;
+    output.appendChild(line);
+    output.scrollTop = output.scrollHeight;
+    i++;
+    setTimeout(addLine, 100 + Math.random() * 200);
+  }
+  addLine();
+}
+
+// STEP 4: Animated counters
+let countersAnimated = false;
+function animateCounters() {
+  if (countersAnimated) return;
+  countersAnimated = true;
+
+  document.querySelectorAll('.deploy-stat .value').forEach(el => {
+    const target = parseFloat(el.dataset.target);
+    const isDecimal = target % 1 !== 0;
+    const duration = 1500;
+    const start = performance.now();
+
+    function update(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = eased * target;
+      el.textContent = isDecimal ? current.toFixed(1) : Math.round(current);
+      if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+  });
+}
+
+function copyUrl(btn) {
+  btn.textContent = 'Copied!';
+  btn.style.background = 'var(--amber)';
+  btn.style.color = '#0a0a0a';
+  setTimeout(() => {
+    btn.textContent = 'Copy URL';
+    btn.style.background = '';
+    btn.style.color = '';
+  }, 2000);
+}
+
+// STEP 5: Booking form
+function bookDemo(e) {
+  e.preventDefault();
+  const name = document.getElementById('bookName').value;
+  const email = document.getElementById('bookEmail').value;
+  const company = document.getElementById('bookCompany').value;
+
+  const dates = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const times = ['10:00 AM', '11:30 AM', '2:00 PM', '3:30 PM'];
+  const day = dates[Math.floor(Math.random() * dates.length)];
+  const time = times[Math.floor(Math.random() * times.length)];
+
+  const today = new Date();
+  const next = new Date(today);
+  const daysUntil = dates.indexOf(day) - today.getDay();
+  next.setDate(today.getDate() + (daysUntil > 0 ? daysUntil : daysUntil + 7));
+  const dateStr = next.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  alert(`🎉 You're booked, ${name}!\n\nDemo scheduled for ${day}, ${dateStr} at ${time} ET.\n\nWe'll send a calendar invite to ${email}.\n\nSee you there — we'll build ${company}'s first feature live on the call!`);
+
+  document.getElementById('bookForm').reset();
+}
+
+// Init: hide all sections except hero
+document.querySelectorAll('.section').forEach((sec, i) => {
+  if (i !== 0) sec.style.display = 'none';
+});
+
+// Auto-select some features for demo
+setTimeout(() => {
+  const cards = document.querySelectorAll('.feature-card');
+  [0, 1, 3, 4].forEach(i => cards[i]?.classList.add('selected'));
+  updateFeatureCount();
+}, 100);
+</script>
+
+</body>
+</html>
